@@ -92,20 +92,24 @@ No hardware modifications were made to the Qorvo DK boards. The boards were used
 - Factory antenna configuration
 - No jumper changes from default
 
-**Photos:**
-> *(Add photos of your anchor placement, tag, and room setup here. Example: `docs/photos/anchor_placement.jpg`)*
+**Setup photos:**
 
-**Schematics:**
-> *(Add a room layout diagram showing anchor coordinates and measurement grid. Example: `docs/room_layout.png`)*
+Line-of-sight condition:
+![Clear LOS setup](docs/Setup_Clear_LineOfSight.jpeg)
 
-**Anchor positions (coordinate system origin = room corner):**
+Obstructed condition:
+![Obstructed setup](docs/Setup_Obstructed.jpeg)
 
-| Anchor | x (m) | y (m) | z (m) |
-|---|---|---|---|
-| anchorA | 0.0 | 0.5 | 0.0 |
-| anchorB | *(fill in)* | *(fill in)* | *(fill in)* |
+**Anchor positions:**
 
-**Measurement grid:** 24 points on a 3D grid within a 1x1 m square, with x/y/z coordinates encoded in filenames (e.g., `z050_xm050_y100` = z=0.5m, x=-0.5m, y=1.0m).
+AnchorA was placed at the center of the 1x1 m measurement grid. The tag was moved by hand to each of the 24 grid points surrounding it.
+
+| Anchor | x (m) | y (m) | z (m) | Role |
+|---|---|---|---|---|
+| anchorA | 0.0 | 0.5 | 0.0 | Center of grid (fixed) |
+| anchorB | TBD | TBD | TBD | Second fixed reference |
+
+**Measurement grid:** 24 points on a 3D grid within a 1x1 m square. The tag was placed at each point by hand for both LOS and obstructed collections. Coordinates are encoded in filenames (e.g., `z050_xm050_y100` = z=0.5m, x=-0.5m, y=1.0m).
 
 ### iv. Power Subsystem
 
@@ -139,19 +143,7 @@ No hardware modifications were made to the Qorvo DK boards. The boards were used
 
 ### i. Firmware
 
-#### IDE / Toolchain
-| Item | Version / Details |
-|---|---|
-| IDE | *(e.g., Segger Embedded Studio, VS Code + Cortex-Debug)* |
-| Compiler | ARM GCC *(fill in exact version, e.g., arm-none-eabi-gcc 12.2)* |
-| SDK | Qorvo UWB SDK *(fill in version from your DK package)* |
-| RTOS | *(e.g., Zephyr RTOS or FreeRTOS - fill in from DK documentation)* |
-| Build system | CMake / west *(or as specified by Qorvo SDK)* |
-
-> **The firmware was not modified in this project.** The stock Qorvo DK firmware was flashed and used as-is. All analysis and machine learning runs on the host PC in Python.
-
-#### Build System and Board Configuration
-> *(Fill in the board target name used in the Qorvo SDK, e.g., `qm35825_dk` and any `prj.conf` / `Kconfig` settings.)*
+The firmware was not modified in this project. The stock Qorvo QM35825 DK firmware was used as-is, running the sample ranging application included in the Qorvo UWB SDK. No custom embedded code was written. All data collection, analysis, and machine learning runs on the host PC in Python.
 
 ### ii. Host Software
 
@@ -193,7 +185,6 @@ matplotlib
 | Channel | 5 or 9 (6.5 GHz / 8.0 GHz - confirm from DK default config) |
 | PRF | 64 MHz |
 | Data rate | 6.8 Mbps (standard UWB payload) |
-| Preamble length | *(fill in from firmware config)* |
 | STS (Scrambled Timestamp Sequence) | Enabled (IEEE 802.15.4z secure ranging) |
 | Ranging mode | Two-Way Ranging (TWR) |
 | Session type | Scheduled (fixed interval, ~10 Hz) |
@@ -205,14 +196,12 @@ matplotlib
 ### i. Hardware Assembly
 
 **Anchor placement:**
-1. Place **anchorA** at position (x=0.0, y=0.5, z=0.0) m - mount at ~0.5 m height on a tripod or shelf edge.
-2. Place **anchorB** at its designated position (see your experiment notes).
-3. Both anchors connect via USB to the host PC (or a powered USB hub).
-4. The mobile tag is carried to each measurement grid point by hand.
+1. Place **anchorA** at the center of the 1x1 m grid at position (x=0.0, y=0.5, z=0.0) m.
+2. Place **anchorB** at its fixed reference position.
+3. Connect both anchors to the host PC via USB.
+4. Move the tag by hand to each of the 24 grid points for measurement.
 
 **Pin map / wiring:** No custom wiring required - all connections are USB.
-
-> *(Add a room diagram photo or sketch here showing anchor positions and the measurement grid.)*
 
 ### ii. Environment Setup
 
@@ -220,19 +209,13 @@ matplotlib
 
 ```powershell
 # Windows (PowerShell)
-git clone https://github.com/YourName/your-repo-name.git
-cd your-repo-name
-
 python -m venv analysis_venv
 analysis_venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
 ```bash
-# macOS / Linux
-git clone https://github.com/YourName/your-repo-name.git
-cd your-repo-name
-
+# macOS / Linux / WSL2
 python3.11 -m venv analysis_venv
 source analysis_venv/bin/activate
 pip install -r requirements.txt
@@ -245,18 +228,15 @@ python -c "import numpy, pandas, scipy, sklearn, matplotlib; print('OK')"
 
 ### iii. Build Instructions
 
-**Firmware:** No build required - stock Qorvo DK firmware is used. If you need to reflash:
-> *(Fill in the Qorvo SDK build command, e.g.: `west build -b qm35825_dk` and `west flash`)*
+**Firmware:** No build required. The stock Qorvo DK sample ranging application is used as-is.
 
-**Host software:** No build required - pure Python scripts, run directly.
+**Host software:** No build required. All scripts run directly with Python.
 
 ### iv. Flashing and Provisioning
 
 1. Connect the DK board via USB.
-2. Flash the pre-built firmware binary from the Qorvo SDK package.
-3. No pairing keys or provisioning are required for this experiment - anchors and tag use default session IDs.
-
-> *(Fill in the exact flash command or GUI steps for your specific DK programmer.)*
+2. Flash the pre-built firmware binary from the Qorvo UWB SDK sample apps.
+3. No pairing keys or provisioning needed - anchors and tag use default session IDs from the SDK.
 
 ### v. Running the Demo
 

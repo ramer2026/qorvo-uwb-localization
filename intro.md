@@ -12,9 +12,6 @@ AoA cuts 3D localization error by 8-9% over ranging alone, but only where the an
 
 ---
 
-![System block diagram](docs/figures/setup.jpg)
-*Two Qorvo QM35825 anchors (fixed) ranging to a mobile tag across a 24-point 3D measurement grid, with host-side Bayesian localization.*
+![Clear line-of-sight setup](docs/Setup_Clear_LineOfSight.jpeg)
+*AnchorA fixed at the center of a 1x1 m grid, with the tag placed at each of 24 surrounding points under both clear and obstructed conditions.*
 
----
-
-> 📹 **See it live** — [Add link to your demo video here]
