@@ -1,5 +1,5 @@
 # UWB Indoor Localization with Bayesian Fingerprinting
-### Qorvo QM35825 — Embedded Systems & Wireless IoT
+### Qorvo QM35825 | Embedded Systems and Wireless IoT
 
 ---
 
@@ -7,9 +7,9 @@
 
 ### i. Problem Statement, Target Application, and High-Level Architecture
 
-Indoor positioning is a fundamental challenge in IoT: GPS does not work reliably indoors, and Wi-Fi/BLE-based approaches suffer from high ranging error and poor obstruction sensitivity. Ultra-Wideband (UWB) radio offers centimeter-class time-of-flight ranging with angle-of-arrival estimation, making it a strong candidate for precise indoor localization in applications such as asset tracking, robotic navigation, and smart building occupancy sensing.
+The Qorvo QM35825 measures distance to sub-10 cm accuracy and reports angle-of-arrival in real time, both visible live in the UWB Explorer GUI. The problem is that distance from one anchor is a sphere, and angle narrows it to a cone. Even with two anchors, the intersection of two cones in 3D space is not unique. Raw ranging and AoA alone cannot resolve a 3D position.
 
-This project implements a complete UWB indoor localization pipeline using the **Qorvo QM35825** UWB development kit. Two fixed UWB anchors are placed in a room. A mobile UWB tag collects ranging and angle-of-arrival measurements at 24 known 3D positions under two signal conditions — line-of-sight (LOS) and obstructed (a person or object blocking the signal path). The collected data feeds a host-side analysis and machine learning pipeline that:
+This project fixes that with fingerprinting. We collected measurements at 24 fixed 3D grid points arranged in a 1x1 m square, under both line-of-sight and obstructed conditions, across both anchors. Every location builds up a statistical signature across distance, AoA azimuth, AoA elevation, RSSI, and signal diagnostics. The model learns those signatures, including what obstructed signals look like, without needing to solve any geometry. The host-side pipeline then:
 
 1. Parses and cleans raw UWB output logs
 2. Statistically characterizes how obstruction affects each signal feature
@@ -18,24 +18,24 @@ This project implements a complete UWB indoor localization pipeline using the **
 5. Validates generalization across independently collected repeated trials
 
 **Why Bayesian fingerprinting on top of a chip that already ranges well?**
-The QM35825 is excellent at ranging — it routinely achieves sub-10 cm distance accuracy on its own. The challenge is that distance alone does not give you 3D position: you need to fuse two anchors, angle-of-arrival (AoA), and signal quality to resolve location. Our fingerprint approach fixes all anchors and grid points, which lets us isolate exactly how much AoA information contributes beyond ranging alone — testing feature sets from range-only up to full diagnostics. The Bayesian model then adds something the ranging chip cannot provide on its own: a calibrated confidence score. Instead of just saying "you are here," it says "you are here with 80% confidence, and here are the next two most likely locations." This uncertainty estimate is critical in obstructed environments where the ranging is still technically valid but the signal has been deflected around an obstacle.
+AoA cuts 3D localization error by 8-9% over ranging alone, but only where the angular geometry actually separates nearby points. Where obstruction deflects the signal, the angle reading is corrupted and AoA stops helping. The Bayesian model handles this by flagging those cases with low confidence instead of silently returning a wrong answer. You get a ranked list of candidate locations and a probability score, so you know when to trust the prediction and when not to.
 
 **High-level architecture:**
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     Physical Layer                       │
-│  UWB Tag (mobile)  ←──── IEEE 802.15.4z ────►  Anchor A │
-│                    ←──── IEEE 802.15.4z ────►  Anchor B │
-└───────────────────────────┬─────────────────────────────┘
-                            │ USB serial / log files
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│                   Host Python Pipeline                   │
-│  1. parse  →  2. analyze  →  3. fingerprint  →          │
-│  4. Bayes  →  5. calibrate  →  6. cross-trial  →        │
-│  7. demo                                                 │
-└─────────────────────────────────────────────────────────┘
++-----------------------------------------------------------+
+|                     Physical Layer                        |
+|  UWB Tag (mobile)  <---- IEEE 802.15.4z ---->  Anchor A   |
+|                    <---- IEEE 802.15.4z ---->  Anchor B   |
++---------------------------+-------------------------------+
+                            | USB serial / log files
+                            v
++-----------------------------------------------------------+
+|                   Host Python Pipeline                    |
+|  1. parse  ->  2. analyze  ->  3. fingerprint  ->         |
+|  4. Bayes  ->  5. calibrate  ->  6. cross-trial  ->       |
+|  7. demo                                                  |
++-----------------------------------------------------------+
 ```
 
 ### ii. Key Features and Performance Summary
@@ -44,13 +44,13 @@ The QM35825 is excellent at ranging — it routinely achieves sub-10 cm distance
 |---|---|
 | UWB standard | IEEE 802.15.4z (HRP UWB) |
 | Ranging frequency | ~10 Hz per anchor |
-| Measurement range tested | 0.5 m – ~2.5 m (indoor room) |
+| Measurement area | 1x1 m square, 24 3D grid points |
 | Number of anchor nodes | 2 (fixed, known positions) |
-| Number of calibration points | 24 (3D grid, LOS + obstructed) |
-| Mean 3D localization error — range only | ~0.70 m |
-| Mean 3D localization error — range + AoA | ~0.64 m (Random Forest) |
-| Mean 3D localization error (cross-trial) | ~0.26 m (ExtraTrees, r1→r2) |
-| AoA contribution to error reduction | ~8–9% improvement over range alone |
+| Number of calibration points | 24 (LOS + obstructed per point) |
+| Mean 3D localization error, range only | ~0.70 m |
+| Mean 3D localization error, range + AoA | ~0.64 m (Random Forest) |
+| Mean 3D localization error, cross-trial | ~0.26 m (ExtraTrees, r1 to r2) |
+| AoA contribution to error reduction | ~8-9% improvement over range alone |
 | Obstruction detection accuracy | ~77% (Random Forest classifier) |
 | 95% credible set coverage (Bayesian) | Tunable via temperature scaling |
 | Live demo tool | UWB Explorer GUI (Qorvo) |
@@ -105,7 +105,7 @@ No hardware modifications were made to the Qorvo DK boards. The boards were used
 | anchorA | 0.0 | 0.5 | 0.0 |
 | anchorB | *(fill in)* | *(fill in)* | *(fill in)* |
 
-**Measurement grid:** 24 points on a 3D grid, with x/y/z coordinates encoded in filenames (e.g., `z050_xm050_y100` = z=0.5m, x=-0.5m, y=1.0m).
+**Measurement grid:** 24 points on a 3D grid within a 1x1 m square, with x/y/z coordinates encoded in filenames (e.g., `z050_xm050_y100` = z=0.5m, x=-0.5m, y=1.0m).
 
 ### iv. Power Subsystem
 
@@ -124,11 +124,11 @@ No hardware modifications were made to the Qorvo DK boards. The boards were used
 | Parameter | Value |
 |---|---|
 | Standard | IEEE 802.15.4z HRP UWB |
-| UWB channel | Channel 5 (6.5 GHz center) or Channel 9 (8.0 GHz) — confirm from firmware config |
+| UWB channel | Channel 5 (6.5 GHz center) or Channel 9 (8.0 GHz), confirm from firmware config |
 | Bandwidth | ~500 MHz (HRP UWB) |
-| Output power | Compliant with FCC Part 15 UWB limits (–41.3 dBm/MHz EIRP) |
+| Output power | Compliant with FCC Part 15 UWB limits (-41.3 dBm/MHz EIRP) |
 | Antenna | Integrated on QM35825 DK (patch antenna) |
-| Tested range | Up to ~5 m indoor (this experiment: 0.5–2.5 m) |
+| Tested range | Up to ~5 m indoor (this experiment: 0.5 to 2.5 m) |
 | Ranging method | Two-Way Ranging (TWR) |
 | AoA method | Phase Difference of Arrival (PDoA) across antenna pairs |
 | Compliance | FCC / CE (per Qorvo DK certification) |
@@ -145,7 +145,7 @@ No hardware modifications were made to the Qorvo DK boards. The boards were used
 | IDE | *(e.g., Segger Embedded Studio, VS Code + Cortex-Debug)* |
 | Compiler | ARM GCC *(fill in exact version, e.g., arm-none-eabi-gcc 12.2)* |
 | SDK | Qorvo UWB SDK *(fill in version from your DK package)* |
-| RTOS | *(e.g., Zephyr RTOS or FreeRTOS — fill in from DK documentation)* |
+| RTOS | *(e.g., Zephyr RTOS or FreeRTOS - fill in from DK documentation)* |
 | Build system | CMake / west *(or as specified by Qorvo SDK)* |
 
 > **The firmware was not modified in this project.** The stock Qorvo DK firmware was flashed and used as-is. All analysis and machine learning runs on the host PC in Python.
@@ -179,18 +179,18 @@ matplotlib
 | Tool | Version | Purpose |
 |---|---|---|
 | UWB Explorer GUI | Qorvo DK companion app | Live visualization of ranging, AoA, and diagnostics during data collection |
-| `run_fira_twr` CLI | Qorvo UWB SDK | Command-line ranging session runner — used by the collection scripts |
+| `run_fira_twr` CLI | Qorvo UWB SDK | Command-line ranging session runner - used by the collection scripts |
 | Python `pyserial` | via SDK venv | Captures stdout ranging logs to `.txt` files |
 | Git | 2.x | Version control |
 
-> J-Link and hardware debuggers were not used in this project — the stock firmware runs as-is and all output is captured via USB serial.
+> J-Link and hardware debuggers were not used in this project - the stock firmware runs as-is and all output is captured via USB serial.
 
 ### iv. Radio Stack / Protocol Configuration
 
 | Parameter | Value |
 |---|---|
 | PHY | HRP (High Rate Pulse) UWB |
-| Channel | 5 or 9 (6.5 GHz / 8.0 GHz — confirm from DK default config) |
+| Channel | 5 or 9 (6.5 GHz / 8.0 GHz - confirm from DK default config) |
 | PRF | 64 MHz |
 | Data rate | 6.8 Mbps (standard UWB payload) |
 | Preamble length | *(fill in from firmware config)* |
@@ -205,12 +205,12 @@ matplotlib
 ### i. Hardware Assembly
 
 **Anchor placement:**
-1. Place **anchorA** at position (x=0.0, y=0.5, z=0.0) m — mount at ~0.5 m height on a tripod or shelf edge.
+1. Place **anchorA** at position (x=0.0, y=0.5, z=0.0) m - mount at ~0.5 m height on a tripod or shelf edge.
 2. Place **anchorB** at its designated position (see your experiment notes).
 3. Both anchors connect via USB to the host PC (or a powered USB hub).
 4. The mobile tag is carried to each measurement grid point by hand.
 
-**Pin map / wiring:** No custom wiring required — all connections are USB.
+**Pin map / wiring:** No custom wiring required - all connections are USB.
 
 > *(Add a room diagram photo or sketch here showing anchor positions and the measurement grid.)*
 
@@ -245,22 +245,22 @@ python -c "import numpy, pandas, scipy, sklearn, matplotlib; print('OK')"
 
 ### iii. Build Instructions
 
-**Firmware:** No build required — stock Qorvo DK firmware is used. If you need to reflash:
+**Firmware:** No build required - stock Qorvo DK firmware is used. If you need to reflash:
 > *(Fill in the Qorvo SDK build command, e.g.: `west build -b qm35825_dk` and `west flash`)*
 
-**Host software:** No build required — pure Python scripts, run directly.
+**Host software:** No build required - pure Python scripts, run directly.
 
 ### iv. Flashing and Provisioning
 
 1. Connect the DK board via USB.
 2. Flash the pre-built firmware binary from the Qorvo SDK package.
-3. No pairing keys or provisioning are required for this experiment — anchors and tag use default session IDs.
+3. No pairing keys or provisioning are required for this experiment - anchors and tag use default session IDs.
 
 > *(Fill in the exact flash command or GUI steps for your specific DK programmer.)*
 
 ### v. Running the Demo
 
-**Step 1 — Collect data (already done; raw logs included in `raw/` and `trials/`).**
+**Step 1 - Collect data (already done; raw logs included in `raw/` and `trials/`).**
 
 If re-collecting: place the tag at each grid point, run the Qorvo host app, and save the stdout output to a `.txt` file and the JSON diagnostic output to a `.json` file following the naming convention:
 ```
@@ -276,14 +276,14 @@ Before running the analysis pipeline, you can show real-time ranging and AoA usi
 1. Plug in both anchors via USB
 2. Open UWB Explorer from the Qorvo SDK
 3. Select both anchor ports and start a session
-4. Move the tag around the room — the GUI shows live distance, azimuth, elevation, and RSSI updating in real time
+4. Move the tag around the room - the GUI shows live distance, azimuth, elevation, and RSSI updating in real time
 
 This is the best way to demonstrate what the chip is doing at the hardware level before showing how the Python pipeline builds localization and uncertainty quantification on top of it.
 
-**Step 2 — Run the full pipeline (from the project root):**
+**Step 2 - Run the full pipeline (from the project root):**
 
 ```bash
-# 1. Parse raw logs → processed/measurements_clean.csv
+# 1. Parse raw logs â†’ processed/measurements_clean.csv
 python scripts/process_qorvo_dataset.py --raw-dir raw --out-dir processed
 
 # 2. Full analysis + ML models + plots
@@ -298,7 +298,7 @@ python scripts/latent_bayes_uncertainty.py
 # 5. Temperature calibration sweep
 python scripts/true_posterior_temperature_sweep.py
 
-# 6. Cross-trial generalization (r1 → r2)
+# 6. Cross-trial generalization (r1 â†’ r2)
 python scripts/trial_generalization_analysis.py
 
 # 7. Run the offline Bayesian demo on r2 test data
@@ -340,7 +340,7 @@ Import-Csv processed\demo_bayes_r2_summary.csv | Format-Table
 column -s, -t < processed/demo_bayes_r2_summary.csv
 ```
 
-**Test datasets:** The `raw/` folder contains the full r1 dataset (96 files = 24 points × 2 conditions × 2 anchors × 2 file types). The `trials/` folder contains both r1 and r2 trial data.
+**Test datasets:** The `raw/` folder contains the full r1 dataset (96 files = 24 points Ã- 2 conditions Ã- 2 anchors Ã- 2 file types). The `trials/` folder contains both r1 and r2 trial data.
 
 ### vii. Troubleshooting
 
@@ -352,11 +352,11 @@ column -s, -t < processed/demo_bayes_r2_summary.csv
 | `Missing folder: trials/r1/raw` | Wrong working directory | Run all scripts from the project root, not from inside `scripts/` |
 | Empty `processed/` folder | Scripts not yet run | Run scripts in the order listed in section d.v above |
 | Plot windows block execution | matplotlib backend | Add `import matplotlib; matplotlib.use('Agg')` at the top of the script if running headless |
-| Low cross-trial accuracy | Expected — see results | Condition accuracy drops to ~65% on r2; this is documented behavior |
+| Low cross-trial accuracy | Expected - see results | Condition accuracy drops to ~65% on r2; this is documented behavior |
 
 ### viii. Offline Mode
 
-This project has no cloud connectivity — it is entirely offline. All data is stored locally in `raw/` and `trials/`. All scripts run on a local Python environment with no internet access required after initial `pip install`.
+This project has no cloud connectivity - it is entirely offline. All data is stored locally in `raw/` and `trials/`. All scripts run on a local Python environment with no internet access required after initial `pip install`.
 
 To run fully air-gapped:
 1. Download the repo and install dependencies on a networked machine first.
@@ -365,7 +365,7 @@ To run fully air-gapped:
 
 ### ix. Security Keys and Tokens
 
-This project has no cloud connectivity and requires no API keys or credentials. Everything runs locally — hardware to USB to host Python scripts. No accounts, tokens, or internet connection are needed beyond the initial `pip install`.
+This project has no cloud connectivity and requires no API keys or credentials. Everything runs locally - hardware to USB to host Python scripts. No accounts, tokens, or internet connection are needed beyond the initial `pip install`.
 
 ---
 
@@ -373,26 +373,26 @@ This project has no cloud connectivity and requires no API keys or credentials. 
 
 ```
 .
-├── raw/                        # r1 raw measurement logs (96 files)
-│   └── {z}_{x}_{y}_{cond}_{anchor}_{kind}.{ext}
-├── trials/
-│   ├── r1/raw/                 # r1 data in trial-folder format
-│   └── r2/raw/                 # r2 repeated-trial subset (4 points)
-├── scripts/
-│   ├── process_qorvo_dataset.py        # Step 1: parse raw logs
-│   ├── analyze_qorvo_complete.py       # Step 2: analysis + ML models
-│   ├── aggregate_fingerprint_model.py  # Step 3: fingerprint localization — isolates AoA contribution
-│   ├── latent_bayes_uncertainty.py     # Step 4: Bayesian inference
-│   ├── true_posterior_temperature_sweep.py  # Step 5: calibration
-│   ├── trial_generalization_analysis.py    # Step 6: cross-trial test
-│   └── demo_bayes_r2_table.py          # Step 7: offline demo
-├── docs/                       # Result summaries
-├── processed/                  # Generated CSVs (gitignored, recreate via scripts)
-├── plots/                      # Generated plots (gitignored)
-├── plots_deeper/               # Generated plots (gitignored)
-├── requirements.txt
-├── .gitignore
-└── README.md
+â”œâ”€â”€ raw/                        # r1 raw measurement logs (96 files)
+â”‚   â””â”€â”€ {z}_{x}_{y}_{cond}_{anchor}_{kind}.{ext}
+â”œâ”€â”€ trials/
+â”‚   â”œâ”€â”€ r1/raw/                 # r1 data in trial-folder format
+â”‚   â””â”€â”€ r2/raw/                 # r2 repeated-trial subset (4 points)
+â”œâ”€â”€ scripts/
+â”‚   â”œâ”€â”€ process_qorvo_dataset.py        # Step 1: parse raw logs
+â”‚   â”œâ”€â”€ analyze_qorvo_complete.py       # Step 2: analysis + ML models
+â”‚   â”œâ”€â”€ aggregate_fingerprint_model.py  # Step 3: fingerprint localization - isolates AoA contribution
+â”‚   â”œâ”€â”€ latent_bayes_uncertainty.py     # Step 4: Bayesian inference
+â”‚   â”œâ”€â”€ true_posterior_temperature_sweep.py  # Step 5: calibration
+â”‚   â”œâ”€â”€ trial_generalization_analysis.py    # Step 6: cross-trial test
+â”‚   â””â”€â”€ demo_bayes_r2_table.py          # Step 7: offline demo
+â”œâ”€â”€ docs/                       # Result summaries
+â”œâ”€â”€ processed/                  # Generated CSVs (gitignored, recreate via scripts)
+â”œâ”€â”€ plots/                      # Generated plots (gitignored)
+â”œâ”€â”€ plots_deeper/               # Generated plots (gitignored)
+â”œâ”€â”€ requirements.txt
+â”œâ”€â”€ .gitignore
+â””â”€â”€ README.md
 ```
 
 ---
@@ -403,3 +403,4 @@ This project has no cloud connectivity and requires no API keys or credentials. 
 - IEEE 802.15.4z standard (HRP UWB): [ieee.org](https://standards.ieee.org/ieee/802.15.4z/10375/)
 - UWB sniffer reference project: [github.com/seemoo-lab/uwb-sniffer](https://github.com/seemoo-lab/uwb-sniffer)
 - Scikit-learn documentation: [scikit-learn.org](https://scikit-learn.org)
+
