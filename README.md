@@ -17,6 +17,9 @@ This project implements a complete UWB indoor localization pipeline using the **
 4. Quantifies prediction uncertainty via Bayesian credible sets and calibration metrics
 5. Validates generalization across independently collected repeated trials
 
+**Why Bayesian fingerprinting on top of a chip that already ranges well?**
+The QM35825 is excellent at ranging — it routinely achieves sub-10 cm distance accuracy on its own. The challenge is that distance alone does not give you 3D position: you need to fuse two anchors, angle-of-arrival (AoA), and signal quality to resolve location. Our fingerprint approach fixes all anchors and grid points, which lets us isolate exactly how much AoA information contributes beyond ranging alone — testing feature sets from range-only up to full diagnostics. The Bayesian model then adds something the ranging chip cannot provide on its own: a calibrated confidence score. Instead of just saying "you are here," it says "you are here with 80% confidence, and here are the next two most likely locations." This uncertainty estimate is critical in obstructed environments where the ranging is still technically valid but the signal has been deflected around an obstacle.
+
 **High-level architecture:**
 
 ```
@@ -44,10 +47,13 @@ This project implements a complete UWB indoor localization pipeline using the **
 | Measurement range tested | 0.5 m – ~2.5 m (indoor room) |
 | Number of anchor nodes | 2 (fixed, known positions) |
 | Number of calibration points | 24 (3D grid, LOS + obstructed) |
-| Mean 3D localization error (cross-val) | ~0.64 m (Random Forest, full features) |
+| Mean 3D localization error — range only | ~0.70 m |
+| Mean 3D localization error — range + AoA | ~0.64 m (Random Forest) |
 | Mean 3D localization error (cross-trial) | ~0.26 m (ExtraTrees, r1→r2) |
+| AoA contribution to error reduction | ~8–9% improvement over range alone |
 | Obstruction detection accuracy | ~77% (Random Forest classifier) |
 | 95% credible set coverage (Bayesian) | Tunable via temperature scaling |
+| Live demo tool | UWB Explorer GUI (Qorvo) |
 | Host language | Python 3.11 |
 | Firmware modifications | None (stock Qorvo firmware) |
 
@@ -172,10 +178,12 @@ matplotlib
 
 | Tool | Version | Purpose |
 |---|---|---|
-| J-Link / OpenOCD | *(fill in)* | Firmware flashing and SWD debug |
-| Segger RTT Viewer | *(fill in)* | Real-time firmware log output |
-| Python serial logger | Built-in (`pyserial`) or manual copy | Capture stdout ranging logs to `.txt` files |
+| UWB Explorer GUI | Qorvo DK companion app | Live visualization of ranging, AoA, and diagnostics during data collection |
+| `run_fira_twr` CLI | Qorvo UWB SDK | Command-line ranging session runner — used by the collection scripts |
+| Python `pyserial` | via SDK venv | Captures stdout ranging logs to `.txt` files |
 | Git | 2.x | Version control |
+
+> J-Link and hardware debuggers were not used in this project — the stock firmware runs as-is and all output is captured via USB serial.
 
 ### iv. Radio Stack / Protocol Configuration
 
@@ -245,9 +253,8 @@ python -c "import numpy, pandas, scipy, sklearn, matplotlib; print('OK')"
 ### iv. Flashing and Provisioning
 
 1. Connect the DK board via USB.
-2. Open J-Link or the Qorvo programming tool.
-3. Flash the pre-built firmware binary from the Qorvo SDK package.
-4. No pairing keys or provisioning are required for this experiment — anchors and tag use default session IDs.
+2. Flash the pre-built firmware binary from the Qorvo SDK package.
+3. No pairing keys or provisioning are required for this experiment — anchors and tag use default session IDs.
 
 > *(Fill in the exact flash command or GUI steps for your specific DK programmer.)*
 
@@ -261,6 +268,17 @@ If re-collecting: place the tag at each grid point, run the Qorvo host app, and 
 {z-coord}_{x-coord}_{y-coord}_{condition}_{anchor}_diag.json
 ```
 Example: `z050_xm050_y100_los_anchorA_stdout.txt`
+
+**Live demo (UWB Explorer GUI):**
+
+Before running the analysis pipeline, you can show real-time ranging and AoA using the **UWB Explorer** GUI that ships with the Qorvo DK:
+
+1. Plug in both anchors via USB
+2. Open UWB Explorer from the Qorvo SDK
+3. Select both anchor ports and start a session
+4. Move the tag around the room — the GUI shows live distance, azimuth, elevation, and RSSI updating in real time
+
+This is the best way to demonstrate what the chip is doing at the hardware level before showing how the Python pipeline builds localization and uncertainty quantification on top of it.
 
 **Step 2 — Run the full pipeline (from the project root):**
 
@@ -347,28 +365,7 @@ To run fully air-gapped:
 
 ### ix. Security Keys and Tokens
 
-This project does not use encryption keys, API tokens, or cloud credentials.
-
-If you extend this project to include cloud telemetry (e.g., AWS IoT, Azure IoT Hub), follow this pattern — **never commit real credentials**:
-
-1. Copy `.env.example` to `.env` and fill in your values:
-```bash
-cp .env.example .env
-```
-2. `.env.example` (safe to commit):
-```
-AWS_IOT_ENDPOINT=your-endpoint.iot.us-east-1.amazonaws.com
-AWS_ACCESS_KEY_ID=YOUR_KEY_HERE
-AWS_SECRET_ACCESS_KEY=YOUR_SECRET_HERE
-```
-3. Add `.env` to `.gitignore` (already done if you use the provided `.gitignore`).
-4. Load in Python via `python-dotenv`:
-```python
-from dotenv import load_dotenv
-import os
-load_dotenv()
-endpoint = os.getenv("AWS_IOT_ENDPOINT")
-```
+This project has no cloud connectivity and requires no API keys or credentials. Everything runs locally — hardware to USB to host Python scripts. No accounts, tokens, or internet connection are needed beyond the initial `pip install`.
 
 ---
 
@@ -384,7 +381,7 @@ endpoint = os.getenv("AWS_IOT_ENDPOINT")
 ├── scripts/
 │   ├── process_qorvo_dataset.py        # Step 1: parse raw logs
 │   ├── analyze_qorvo_complete.py       # Step 2: analysis + ML models
-│   ├── aggregate_fingerprint_model.py  # Step 3: fingerprint localization
+│   ├── aggregate_fingerprint_model.py  # Step 3: fingerprint localization — isolates AoA contribution
 │   ├── latent_bayes_uncertainty.py     # Step 4: Bayesian inference
 │   ├── true_posterior_temperature_sweep.py  # Step 5: calibration
 │   ├── trial_generalization_analysis.py    # Step 6: cross-trial test
