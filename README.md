@@ -167,6 +167,44 @@ python scripts/demo_bayes_r2_table.py
 
 ---
 
+## Limitations
+
+**Data collection scripts are machine-specific and require modification to reproduce.**
+
+`collect_anchorA.sh` and `collect_anchorB.sh` were written for the specific machine and Linux distribution used during data collection (Manjaro Linux). Two things must be updated before the scripts will work on a different machine:
+
+**1. Hardcoded paths (both scripts)**
+
+The following paths are hardcoded to the original machine's directory layout and pyenv setup:
+
+```bash
+BASE="$HOME/Desktop/qorvo_data_redo"
+SDK="$HOME/Desktop/qm35-sdk/Samples/Python/UWB-Qorvo-Tools"
+RUN_FIRA_TWR="$HOME/.pyenv/versions/3.11.9/bin/run_fira_twr"
+```
+
+Update `BASE` to your desired output directory, `SDK` to where you installed the Qorvo UWB SDK, and `RUN_FIRA_TWR` to the actual path of your `run_fira_twr` binary (find it with `which run_fira_twr` after activating the SDK venv).
+
+**2. USB device detection for anchorB (`collect_anchorB.sh`)**
+
+The script detects the anchorB serial port using pyserial's hwid string:
+
+```python
+matches = [p.device for p in ports if "2DE0:1337" in p.hwid or "Raspberry Pi Composite Gadget" in p.description]
+```
+
+The hwid string format varies by Linux distro -- on some systems it is uppercase (`2DE0:1337`), on others lowercase (`2de0:1337`). If the script fails to find the device, check what your system reports:
+
+```bash
+python -c "import serial.tools.list_ports; [print(p.device, p.hwid, p.description) for p in serial.tools.list_ports.comports()]"
+```
+
+Then update the hwid string in the script to match.
+
+The analysis pipeline (Steps 1-7) has no such dependencies and runs on any machine with Python 3.11 and the required packages.
+
+---
+
 ## e. Repository Structure
 
 ```
