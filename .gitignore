@@ -1,0 +1,16 @@
+# Python virtual environment — reinstall with: pip install -r requirements.txt
+analysis_venv/
+
+# Generated outputs — recreate by running the scripts in order
+processed/
+plots/
+plots_deeper/
+
+# Python bytecode cache
+__pycache__/
+*.pyc
+*.pyo
+
+# OS junk
+.DS_Store
+Thumbs.db

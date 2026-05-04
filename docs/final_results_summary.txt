@@ -1,0 +1,46 @@
+Qorvo UWB LOS vs Obstruction 3D Localization Summary
+
+Dataset:
+- 24 matched 3D tag points
+- 2 conditions: LOS and obstructed
+- 2 anchors per condition
+- 48 point-condition samples
+- 27,931 clean per-measurement rows after filtering status != Ok and distance == 0
+
+LOS vs Obstruction:
+- RSSI significant in 48/48 point-anchor comparisons.
+- path1 RSL significant in 48/48.
+- path1 SNR significant in 48/48.
+- peak SNR significant in 47/48.
+- RSL mean significant in 47/48.
+- diagnostic AoA type 0 significant in 46/48.
+- printed AoA azimuth significant in 45/48.
+- printed AoA elevation significant in 44/48.
+- distance significant in 42/48.
+
+Effect sizes:
+- path1 RSL median |Cohen d| ≈ 3.94.
+- path1 SNR median |Cohen d| ≈ 3.94.
+- RSSI median |Cohen d| ≈ 3.51.
+- RSL mean median |Cohen d| ≈ 4.85.
+- distance median |Cohen d| ≈ 0.68.
+
+Localization:
+- Aggregate range + AoA baseline:
+  mean 3D error = 0.696 m
+  median 3D error = 0.683 m
+- Aggregate range + AoA + signal/SNR:
+  mean 3D error = 0.636 m
+  median 3D error = 0.629 m
+- Improvement over aggregate baseline:
+  mean error reduction ≈ 0.060 m, about 8.6%
+  median error reduction ≈ 0.053 m, about 7.8%
+
+Obstruction classification:
+- Aggregate distribution random forest:
+  accuracy = 77.1%
+  LOS recall = 87.5%
+  obstructed recall = 66.7%
+
+Main conclusion:
+Obstruction strongly changes UWB diagnostic measurement distributions, especially RSSI/RSL/SNR. Distribution-level signal and SNR features improve 3D localization beyond range/AoA alone and provide moderate LOS/obstruction classification.

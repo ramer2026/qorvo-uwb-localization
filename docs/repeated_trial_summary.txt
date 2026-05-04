@@ -1,0 +1,31 @@
+Repeated-Trial Pilot Summary
+
+Dataset:
+- r1: original full 24-point dataset
+- r2: independent repeated-trial subset
+- r2 points:
+  - z000_x000_y000
+  - z050_x050_y050
+  - z050_x050_y100
+  - zm050_x000_y000
+- Each r2 point has LOS and obstructed measurements from anchorA and anchorB.
+- R2 completeness check: complete.
+
+Evaluation:
+- Train on r1 rows corresponding to the r2 points.
+- Test on r2 repeated-placement rows.
+- Features: range, RSSI, AoA, RSL/SNR diagnostics, diagnostic AoA.
+- Model: ExtraTreesRegressor for 3D localization, RandomForestClassifier for LOS/obstructed condition.
+
+Results:
+- Training rows: 4,611
+- Test rows: 4,637
+- Test points: 4
+- Condition accuracy: 65.2%
+- Mean 3D error: 0.264 m
+- Median 3D error: 0.189 m
+- 75th percentile error: 0.339 m
+- 90th percentile error: 0.687 m
+
+Interpretation:
+The repeated-trial pilot suggests that the localization model trained on the original dataset can transfer to independently re-placed tag/obstruction measurements for a small representative subset. Condition classification is less stable across repeated placements, motivating additional repeated-trial data and trial-robust calibration.
