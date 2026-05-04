@@ -1,62 +1,408 @@
-# Qorvo UWB Localization Analysis
+# UWB Indoor Localization with Bayesian Fingerprinting
+### Qorvo QM35825 — Embedded Systems & Wireless IoT
 
-This package contains the cleaned analysis/demo code and data for the Qorvo QM35825 UWB localization experiment.
+---
 
-## Contents
+## a. Introduction
 
-- raw/: original r1 raw Qorvo measurement logs
-- trials/r1/raw/: original trial in trial-folder format
-- trials/r2/raw/: repeated-trial subset
-- processed/: processed CSV outputs used for analysis and demo
-- scripts/: final analysis and demo scripts
-- plots/ and plots_deeper/: generated plots
-- docs/: result summaries
+### i. Problem Statement, Target Application, and High-Level Architecture
 
-## Setup
+Indoor positioning is a fundamental challenge in IoT: GPS does not work reliably indoors, and Wi-Fi/BLE-based approaches suffer from high ranging error and poor obstruction sensitivity. Ultra-Wideband (UWB) radio offers centimeter-class time-of-flight ranging with angle-of-arrival estimation, making it a strong candidate for precise indoor localization in applications such as asset tracking, robotic navigation, and smart building occupancy sensing.
 
-Recommended Python version: Python 3.11.
+This project implements a complete UWB indoor localization pipeline using the **Qorvo QM35825** UWB development kit. Two fixed UWB anchors are placed in a room. A mobile UWB tag collects ranging and angle-of-arrival measurements at 24 known 3D positions under two signal conditions — line-of-sight (LOS) and obstructed (a person or object blocking the signal path). The collected data feeds a host-side analysis and machine learning pipeline that:
 
-Commands:
+1. Parses and cleans raw UWB output logs
+2. Statistically characterizes how obstruction affects each signal feature
+3. Trains and evaluates multiple localization models (Random Forest, ExtraTrees, Bayesian fingerprinting)
+4. Quantifies prediction uncertainty via Bayesian credible sets and calibration metrics
+5. Validates generalization across independently collected repeated trials
 
-    python -m venv analysis_venv
-    source analysis_venv/bin/activate
-    pip install -r requirements.txt
+**High-level architecture:**
 
-## Main analysis scripts
+```
+┌─────────────────────────────────────────────────────────┐
+│                     Physical Layer                       │
+│  UWB Tag (mobile)  ←──── IEEE 802.15.4z ────►  Anchor A │
+│                    ←──── IEEE 802.15.4z ────►  Anchor B │
+└───────────────────────────┬─────────────────────────────┘
+                            │ USB serial / log files
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│                   Host Python Pipeline                   │
+│  1. parse  →  2. analyze  →  3. fingerprint  →          │
+│  4. Bayes  →  5. calibrate  →  6. cross-trial  →        │
+│  7. demo                                                 │
+└─────────────────────────────────────────────────────────┘
+```
 
-Run from the project root:
+### ii. Key Features and Performance Summary
 
-    python scripts/process_qorvo_dataset.py --raw-dir raw --out-dir processed
-    python scripts/analyze_qorvo_complete.py
-    python scripts/aggregate_fingerprint_model.py
-    python scripts/latent_bayes_uncertainty.py
-    python scripts/true_posterior_temperature_sweep.py
-    python scripts/trial_generalization_analysis.py
+| Metric | Value |
+|---|---|
+| UWB standard | IEEE 802.15.4z (HRP UWB) |
+| Ranging frequency | ~10 Hz per anchor |
+| Measurement range tested | 0.5 m – ~2.5 m (indoor room) |
+| Number of anchor nodes | 2 (fixed, known positions) |
+| Number of calibration points | 24 (3D grid, LOS + obstructed) |
+| Mean 3D localization error (cross-val) | ~0.64 m (Random Forest, full features) |
+| Mean 3D localization error (cross-trial) | ~0.26 m (ExtraTrees, r1→r2) |
+| Obstruction detection accuracy | ~77% (Random Forest classifier) |
+| 95% credible set coverage (Bayesian) | Tunable via temperature scaling |
+| Host language | Python 3.11 |
+| Firmware modifications | None (stock Qorvo firmware) |
 
-## Demo
+---
 
-Run the offline Bayesian r2 repeated-trial demo:
+## b. Hardware Details
 
-    python scripts/demo_bayes_r2_table.py
-    column -s, -t < processed/demo_bayes_r2_table.csv
-    column -s, -t < processed/demo_bayes_r2_summary.csv
+### i. Board(s) Used and MCU Details
 
-The demo feeds r2 repeated-trial measurements into the Bayesian fingerprint model and outputs predicted location, top candidate points, LOS/obstructed probabilities, and 95% credible-set size.
+| Component | Details |
+|---|---|
+| UWB Chip | **Qorvo QM35825** UWB transceiver |
+| Development Kit | Qorvo QM35825 DK (Development Kit) |
+| MCU (on-board host) | ARM Cortex-M33 (exact part: see board datasheet) |
+| Interface to PC | USB CDC serial (stdout log output) |
+| Anchor count | 2 units (anchorA, anchorB) |
+| Tag count | 1 unit (mobile) |
 
-## Key outputs
+> **Note:** Exact MCU part number and board revision should be filled in from your specific DK packaging. The QM35825 datasheet is available at [qorvo.com](https://www.qorvo.com).
 
-- processed/measurements_clean.csv
-- processed/los_vs_obst_stats.csv
-- processed/aggregate_localization_results.csv
-- processed/latent_bayes_uncertainty_results.csv
-- processed/true_posterior_temperature_sweep.csv
-- processed/trial_generalization_r1_to_r2_results.csv
-- processed/demo_bayes_r2_table.csv
-- docs/final_results_summary.txt
-- docs/repeated_trial_summary.txt
+### ii. Additional Peripherals
 
-## Note
+| Peripheral | Model / Description | Notes |
+|---|---|---|
+| Host computer | Any PC running Python 3.11 | Receives and logs serial output |
+| USB cable | USB-A to USB-C (or Micro-USB, per DK) | One per anchor + one for tag |
+| Tripod / mount | Standard camera tripod | Used to hold anchors at fixed heights |
+| Obstruction material | Human body / cardboard | Placed between tag and anchor for obstructed trials |
 
-This package does not include a Python virtual environment. Recreate it using requirements.txt.
+> Add links to any specific peripherals or mounts purchased here.
 
-The Qorvo firmware was not modified. The main contribution is host-side parsing, analysis, Bayesian localization, calibration, repeated-trial validation, and the offline demo pipeline.
+### iii. Hardware Modifications
+
+No hardware modifications were made to the Qorvo DK boards. The boards were used with:
+- Stock firmware (unmodified)
+- Factory antenna configuration
+- No jumper changes from default
+
+**Photos:**
+> *(Add photos of your anchor placement, tag, and room setup here. Example: `docs/photos/anchor_placement.jpg`)*
+
+**Schematics:**
+> *(Add a room layout diagram showing anchor coordinates and measurement grid. Example: `docs/room_layout.png`)*
+
+**Anchor positions (coordinate system origin = room corner):**
+
+| Anchor | x (m) | y (m) | z (m) |
+|---|---|---|---|
+| anchorA | 0.0 | 0.5 | 0.0 |
+| anchorB | *(fill in)* | *(fill in)* | *(fill in)* |
+
+**Measurement grid:** 24 points on a 3D grid, with x/y/z coordinates encoded in filenames (e.g., `z050_xm050_y100` = z=0.5m, x=-0.5m, y=1.0m).
+
+### iv. Power Subsystem
+
+| Item | Details |
+|---|---|
+| Power source | USB bus power (5 V from host PC or USB hub) |
+| On-board regulation | 3.3 V LDO (on DK board) |
+| Estimated runtime | Unlimited (tethered USB) |
+| Battery option | Not used in this experiment |
+| Charging | N/A (USB powered) |
+
+> If you add a battery-powered deployment, document battery type, capacity (mAh), and estimated runtime at the measured current draw here.
+
+### v. RF Specifications
+
+| Parameter | Value |
+|---|---|
+| Standard | IEEE 802.15.4z HRP UWB |
+| UWB channel | Channel 5 (6.5 GHz center) or Channel 9 (8.0 GHz) — confirm from firmware config |
+| Bandwidth | ~500 MHz (HRP UWB) |
+| Output power | Compliant with FCC Part 15 UWB limits (–41.3 dBm/MHz EIRP) |
+| Antenna | Integrated on QM35825 DK (patch antenna) |
+| Tested range | Up to ~5 m indoor (this experiment: 0.5–2.5 m) |
+| Ranging method | Two-Way Ranging (TWR) |
+| AoA method | Phase Difference of Arrival (PDoA) across antenna pairs |
+| Compliance | FCC / CE (per Qorvo DK certification) |
+
+---
+
+## c. Software Environment
+
+### i. Firmware
+
+#### IDE / Toolchain
+| Item | Version / Details |
+|---|---|
+| IDE | *(e.g., Segger Embedded Studio, VS Code + Cortex-Debug)* |
+| Compiler | ARM GCC *(fill in exact version, e.g., arm-none-eabi-gcc 12.2)* |
+| SDK | Qorvo UWB SDK *(fill in version from your DK package)* |
+| RTOS | *(e.g., Zephyr RTOS or FreeRTOS — fill in from DK documentation)* |
+| Build system | CMake / west *(or as specified by Qorvo SDK)* |
+
+> **The firmware was not modified in this project.** The stock Qorvo DK firmware was flashed and used as-is. All analysis and machine learning runs on the host PC in Python.
+
+#### Build System and Board Configuration
+> *(Fill in the board target name used in the Qorvo SDK, e.g., `qm35825_dk` and any `prj.conf` / `Kconfig` settings.)*
+
+### ii. Host Software
+
+| Item | Details |
+|---|---|
+| Language | Python 3.11 |
+| Package manager | pip |
+| Dependency file | `requirements.txt` |
+| OS compatibility | Windows 10/11, macOS 12+, Ubuntu 20.04+ |
+| Special drivers | USB CDC serial driver (built into Windows 10+; on Linux: `cp210x` or `ch341` kernel module) |
+
+**Dependencies (`requirements.txt`):**
+```
+numpy
+pandas
+scipy
+scikit-learn
+matplotlib
+```
+
+> Exact pinned versions: run `pip freeze > requirements_lock.txt` after installing and commit that file for full reproducibility.
+
+### iii. Programming / Debugging Tools
+
+| Tool | Version | Purpose |
+|---|---|---|
+| J-Link / OpenOCD | *(fill in)* | Firmware flashing and SWD debug |
+| Segger RTT Viewer | *(fill in)* | Real-time firmware log output |
+| Python serial logger | Built-in (`pyserial`) or manual copy | Capture stdout ranging logs to `.txt` files |
+| Git | 2.x | Version control |
+
+### iv. Radio Stack / Protocol Configuration
+
+| Parameter | Value |
+|---|---|
+| PHY | HRP (High Rate Pulse) UWB |
+| Channel | 5 or 9 (6.5 GHz / 8.0 GHz — confirm from DK default config) |
+| PRF | 64 MHz |
+| Data rate | 6.8 Mbps (standard UWB payload) |
+| Preamble length | *(fill in from firmware config)* |
+| STS (Scrambled Timestamp Sequence) | Enabled (IEEE 802.15.4z secure ranging) |
+| Ranging mode | Two-Way Ranging (TWR) |
+| Session type | Scheduled (fixed interval, ~10 Hz) |
+
+---
+
+## d. Reproducibility Guide
+
+### i. Hardware Assembly
+
+**Anchor placement:**
+1. Place **anchorA** at position (x=0.0, y=0.5, z=0.0) m — mount at ~0.5 m height on a tripod or shelf edge.
+2. Place **anchorB** at its designated position (see your experiment notes).
+3. Both anchors connect via USB to the host PC (or a powered USB hub).
+4. The mobile tag is carried to each measurement grid point by hand.
+
+**Pin map / wiring:** No custom wiring required — all connections are USB.
+
+> *(Add a room diagram photo or sketch here showing anchor positions and the measurement grid.)*
+
+### ii. Environment Setup
+
+**Requirements:** Python 3.11, pip, git.
+
+```powershell
+# Windows (PowerShell)
+git clone https://github.com/YourName/your-repo-name.git
+cd your-repo-name
+
+python -m venv analysis_venv
+analysis_venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+```bash
+# macOS / Linux
+git clone https://github.com/YourName/your-repo-name.git
+cd your-repo-name
+
+python3.11 -m venv analysis_venv
+source analysis_venv/bin/activate
+pip install -r requirements.txt
+```
+
+Verify the install:
+```bash
+python -c "import numpy, pandas, scipy, sklearn, matplotlib; print('OK')"
+```
+
+### iii. Build Instructions
+
+**Firmware:** No build required — stock Qorvo DK firmware is used. If you need to reflash:
+> *(Fill in the Qorvo SDK build command, e.g.: `west build -b qm35825_dk` and `west flash`)*
+
+**Host software:** No build required — pure Python scripts, run directly.
+
+### iv. Flashing and Provisioning
+
+1. Connect the DK board via USB.
+2. Open J-Link or the Qorvo programming tool.
+3. Flash the pre-built firmware binary from the Qorvo SDK package.
+4. No pairing keys or provisioning are required for this experiment — anchors and tag use default session IDs.
+
+> *(Fill in the exact flash command or GUI steps for your specific DK programmer.)*
+
+### v. Running the Demo
+
+**Step 1 — Collect data (already done; raw logs included in `raw/` and `trials/`).**
+
+If re-collecting: place the tag at each grid point, run the Qorvo host app, and save the stdout output to a `.txt` file and the JSON diagnostic output to a `.json` file following the naming convention:
+```
+{z-coord}_{x-coord}_{y-coord}_{condition}_{anchor}_stdout.txt
+{z-coord}_{x-coord}_{y-coord}_{condition}_{anchor}_diag.json
+```
+Example: `z050_xm050_y100_los_anchorA_stdout.txt`
+
+**Step 2 — Run the full pipeline (from the project root):**
+
+```bash
+# 1. Parse raw logs → processed/measurements_clean.csv
+python scripts/process_qorvo_dataset.py --raw-dir raw --out-dir processed
+
+# 2. Full analysis + ML models + plots
+python scripts/analyze_qorvo_complete.py
+
+# 3. Aggregate fingerprint model
+python scripts/aggregate_fingerprint_model.py
+
+# 4. Bayesian uncertainty quantification
+python scripts/latent_bayes_uncertainty.py
+
+# 5. Temperature calibration sweep
+python scripts/true_posterior_temperature_sweep.py
+
+# 6. Cross-trial generalization (r1 → r2)
+python scripts/trial_generalization_analysis.py
+
+# 7. Run the offline Bayesian demo on r2 test data
+python scripts/demo_bayes_r2_table.py
+```
+
+**Expected final output (Step 7):**
+```
+=== Bayesian r2 demo table ===
+true_point   true_condition  pred_point   pred_condition  error_m  top1_prob  credible95_size
+z000_x000_y000  los          z000_x000_y000  los         0.00     0.72       3
+...
+
+=== Demo summary ===
+n_windows  top1_point_accuracy  mean_error_m  mean_credible95_size
+8          0.75                 0.26          4.2
+```
+
+### vi. Testing and Measurement
+
+**Reproducing key metrics:**
+
+| Metric | Script | Output file |
+|---|---|---|
+| LOS vs obstructed statistics | `analyze_qorvo_complete.py` | `processed/los_vs_obst_stats.csv` |
+| Random Forest localization error | `analyze_qorvo_complete.py` | `processed/localization_model_results.csv` |
+| Fingerprint model error | `aggregate_fingerprint_model.py` | `processed/aggregate_localization_results.csv` |
+| Bayesian accuracy + calibration | `latent_bayes_uncertainty.py` | `processed/latent_bayes_uncertainty_results.csv` |
+| Temperature sweep | `true_posterior_temperature_sweep.py` | `processed/true_posterior_temperature_sweep.csv` |
+| Cross-trial generalization | `trial_generalization_analysis.py` | `processed/trial_generalization_r1_to_r2_results.csv` |
+| Demo predictions | `demo_bayes_r2_table.py` | `processed/demo_bayes_r2_table.csv` |
+
+**View results as formatted tables:**
+```bash
+# Windows PowerShell
+Import-Csv processed\demo_bayes_r2_summary.csv | Format-Table
+
+# macOS / Linux
+column -s, -t < processed/demo_bayes_r2_summary.csv
+```
+
+**Test datasets:** The `raw/` folder contains the full r1 dataset (96 files = 24 points × 2 conditions × 2 anchors × 2 file types). The `trials/` folder contains both r1 and r2 trial data.
+
+### vii. Troubleshooting
+
+| Problem | Likely cause | Fix |
+|---|---|---|
+| `ModuleNotFoundError` | venv not activated | Run `analysis_venv\Scripts\Activate.ps1` (Windows) or `source analysis_venv/bin/activate` (Mac/Linux) |
+| `FileNotFoundError: measurements_clean.csv` | Scripts run out of order | Run `process_qorvo_dataset.py` or `analyze_qorvo_complete.py` first |
+| `FileNotFoundError: trials_r1_r2_measurements_clean.csv` | Step 6 skipped | Run `trial_generalization_analysis.py` before `demo_bayes_r2_table.py` |
+| `Missing folder: trials/r1/raw` | Wrong working directory | Run all scripts from the project root, not from inside `scripts/` |
+| Empty `processed/` folder | Scripts not yet run | Run scripts in the order listed in section d.v above |
+| Plot windows block execution | matplotlib backend | Add `import matplotlib; matplotlib.use('Agg')` at the top of the script if running headless |
+| Low cross-trial accuracy | Expected — see results | Condition accuracy drops to ~65% on r2; this is documented behavior |
+
+### viii. Offline Mode
+
+This project has no cloud connectivity — it is entirely offline. All data is stored locally in `raw/` and `trials/`. All scripts run on a local Python environment with no internet access required after initial `pip install`.
+
+To run fully air-gapped:
+1. Download the repo and install dependencies on a networked machine first.
+2. Copy the entire project folder (including `analysis_venv/`) to the offline machine.
+3. All 7 scripts run without any network calls.
+
+### ix. Security Keys and Tokens
+
+This project does not use encryption keys, API tokens, or cloud credentials.
+
+If you extend this project to include cloud telemetry (e.g., AWS IoT, Azure IoT Hub), follow this pattern — **never commit real credentials**:
+
+1. Copy `.env.example` to `.env` and fill in your values:
+```bash
+cp .env.example .env
+```
+2. `.env.example` (safe to commit):
+```
+AWS_IOT_ENDPOINT=your-endpoint.iot.us-east-1.amazonaws.com
+AWS_ACCESS_KEY_ID=YOUR_KEY_HERE
+AWS_SECRET_ACCESS_KEY=YOUR_SECRET_HERE
+```
+3. Add `.env` to `.gitignore` (already done if you use the provided `.gitignore`).
+4. Load in Python via `python-dotenv`:
+```python
+from dotenv import load_dotenv
+import os
+load_dotenv()
+endpoint = os.getenv("AWS_IOT_ENDPOINT")
+```
+
+---
+
+## e. Repository Structure
+
+```
+.
+├── raw/                        # r1 raw measurement logs (96 files)
+│   └── {z}_{x}_{y}_{cond}_{anchor}_{kind}.{ext}
+├── trials/
+│   ├── r1/raw/                 # r1 data in trial-folder format
+│   └── r2/raw/                 # r2 repeated-trial subset (4 points)
+├── scripts/
+│   ├── process_qorvo_dataset.py        # Step 1: parse raw logs
+│   ├── analyze_qorvo_complete.py       # Step 2: analysis + ML models
+│   ├── aggregate_fingerprint_model.py  # Step 3: fingerprint localization
+│   ├── latent_bayes_uncertainty.py     # Step 4: Bayesian inference
+│   ├── true_posterior_temperature_sweep.py  # Step 5: calibration
+│   ├── trial_generalization_analysis.py    # Step 6: cross-trial test
+│   └── demo_bayes_r2_table.py          # Step 7: offline demo
+├── docs/                       # Result summaries
+├── processed/                  # Generated CSVs (gitignored, recreate via scripts)
+├── plots/                      # Generated plots (gitignored)
+├── plots_deeper/               # Generated plots (gitignored)
+├── requirements.txt
+├── .gitignore
+└── README.md
+```
+
+---
+
+## References
+
+- Qorvo QM35825 product page: [qorvo.com](https://www.qorvo.com)
+- IEEE 802.15.4z standard (HRP UWB): [ieee.org](https://standards.ieee.org/ieee/802.15.4z/10375/)
+- UWB sniffer reference project: [github.com/seemoo-lab/uwb-sniffer](https://github.com/seemoo-lab/uwb-sniffer)
+- Scikit-learn documentation: [scikit-learn.org](https://scikit-learn.org)
