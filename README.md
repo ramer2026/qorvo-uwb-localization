@@ -353,26 +353,27 @@ This project has no cloud connectivity and requires no API keys or credentials. 
 
 ```
 .
-â”œâ”€â”€ raw/                        # r1 raw measurement logs (96 files)
-â”‚   â””â”€â”€ {z}_{x}_{y}_{cond}_{anchor}_{kind}.{ext}
-â”œâ”€â”€ trials/
-â”‚   â”œâ”€â”€ r1/raw/                 # r1 data in trial-folder format
-â”‚   â””â”€â”€ r2/raw/                 # r2 repeated-trial subset (4 points)
-â”œâ”€â”€ scripts/
-â”‚   â”œâ”€â”€ process_qorvo_dataset.py        # Step 1: parse raw logs
-â”‚   â”œâ”€â”€ analyze_qorvo_complete.py       # Step 2: analysis + ML models
-â”‚   â”œâ”€â”€ aggregate_fingerprint_model.py  # Step 3: fingerprint localization - isolates AoA contribution
-â”‚   â”œâ”€â”€ latent_bayes_uncertainty.py     # Step 4: Bayesian inference
-â”‚   â”œâ”€â”€ true_posterior_temperature_sweep.py  # Step 5: calibration
-â”‚   â”œâ”€â”€ trial_generalization_analysis.py    # Step 6: cross-trial test
-â”‚   â””â”€â”€ demo_bayes_r2_table.py          # Step 7: offline demo
-â”œâ”€â”€ docs/                       # Result summaries
-â”œâ”€â”€ processed/                  # Generated CSVs (gitignored, recreate via scripts)
-â”œâ”€â”€ plots/                      # Generated plots (gitignored)
-â”œâ”€â”€ plots_deeper/               # Generated plots (gitignored)
-â”œâ”€â”€ requirements.txt
-â”œâ”€â”€ .gitignore
-â””â”€â”€ README.md
+    raw/                              # r1 raw measurement logs (96 files)
+        {z}_{x}_{y}_{cond}_{anchor}_{kind}.{ext}
+    trials/
+        r1/raw/                       # r1 data in trial-folder format
+        r2/raw/                       # r2 repeated-trial subset (4 points)
+    scripts/
+        process_qorvo_dataset.py        # Step 1: parse raw logs
+        analyze_qorvo_complete.py       # Step 2: analysis + ML models
+        aggregate_fingerprint_model.py  # Step 3: fingerprint localization, isolates AoA contribution
+        latent_bayes_uncertainty.py     # Step 4: Bayesian inference
+        true_posterior_temperature_sweep.py  # Step 5: calibration
+        trial_generalization_analysis.py     # Step 6: cross-trial test
+        demo_bayes_r2_table.py          # Step 7: offline demo
+    docs/                             # Setup photos and result summaries
+    processed/                        # Generated CSVs (gitignored, recreate via scripts)
+    plots/                            # Generated plots (gitignored)
+    plots_deeper/                     # Generated plots (gitignored)
+    requirements.txt
+    .gitignore
+    README.md
+    intro.md
 ```
 
 ---
