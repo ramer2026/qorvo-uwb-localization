@@ -14,17 +14,6 @@ This project fixes that with fingerprinting. We collected measurements at 24 fix
 **Why Bayesian fingerprinting on top of a chip that already ranges well?**
 AoA cuts 3D localization error by 8-9% over ranging alone, but only where the angular geometry actually separates nearby points. Where obstruction deflects the signal, the angle reading is corrupted and AoA stops helping. The Bayesian model flags those cases with low confidence instead of silently returning a wrong answer. You get a ranked list of candidate locations and a probability score, so you know when to trust the prediction and when not to.
 
-```
-UWB Tag (mobile)  <-- IEEE 802.15.4z -->  Anchor A
-                  <-- IEEE 802.15.4z -->  Anchor B
-                             |
-                       USB / log files
-                             v
-               Host Python Pipeline (7 steps):
-               parse -> analyze -> fingerprint ->
-               Bayes -> calibrate -> cross-trial -> demo
-```
-
 ### ii. Performance Summary
 
 | Metric | Value |
@@ -35,7 +24,7 @@ UWB Tag (mobile)  <-- IEEE 802.15.4z -->  Anchor A
 | Mean 3D error, range + AoA | ~0.64 m (Random Forest) |
 | Mean 3D error, cross-trial | ~0.26 m (ExtraTrees, r1 to r2) |
 | AoA contribution | ~8-9% error reduction over range alone |
-| Obstruction detection accuracy | ~77% |
+| Obstruction detection accuracy | ~77% (Random Forest, `analyze_qorvo_complete.py`, GroupKFold CV) |
 | Live demo | UWB Explorer GUI |
 
 ---
@@ -70,7 +59,7 @@ AnchorA was placed at the center of the 1x1 m measurement grid. The tag was move
 | Anchor | x (m) | y (m) | z (m) |
 |---|---|---|---|
 | anchorA | 0.0 | 0.5 | 0.0 |
-| anchorB | TBD | TBD | TBD |
+| anchorB | 0.0 | 0.0 | 0.0 |
 
 Line-of-sight:
 ![Clear LOS setup](docs/Setup_Clear_LineOfSight.jpeg)
@@ -132,17 +121,49 @@ To re-collect: run `scripts/collect_anchorA.sh` and `scripts/collect_anchorB.sh`
 
 ### ii. Run the Pipeline
 
-From the project root, run in order:
+Run all scripts from the project root in order. Each step outputs CSVs into `processed/` that the next step reads.
 
+**Step 1 -- Parse raw logs**
 ```bash
 python scripts/process_qorvo_dataset.py --raw-dir raw --out-dir processed
+```
+Reads all `stdout.txt` and `diag.json` files from `raw/`, merges them by sequence number, computes true range from anchor geometry, and runs LOS vs obstructed statistical tests (Cohen's d, Welch's t-test). Outputs `processed/measurements_clean.csv`.
+
+**Step 2 -- Full analysis and ML models**
+```bash
 python scripts/analyze_qorvo_complete.py
+```
+Pivots per-anchor measurements into one row per (point, condition), trains three Random Forest localization models (range only / range+AoA / range+AoA+diagnostics) with GroupKFold CV, trains the obstruction classifier (~77% accuracy), and generates all box/delta plots into `plots/`.
+
+**Step 3 -- Aggregate fingerprint model**
+```bash
 python scripts/aggregate_fingerprint_model.py
+```
+Computes 6 statistics per feature per anchor (mean, std, median, IQR, Q10, Q90), trains ExtraTrees regression and Random Forest classifier on the fingerprint table. Tests three feature sets to isolate the AoA contribution.
+
+**Step 4 -- Bayesian uncertainty quantification**
+```bash
 python scripts/latent_bayes_uncertainty.py
+```
+Fits one diagonal Gaussian per (point, condition) label, scores each candidate via log-likelihood, marginalizes over condition, and reports accuracy, mean 3D error, Expected Calibration Error (ECE), 95% credible set size, and Brier score.
+
+**Step 5 -- Temperature calibration sweep**
+```bash
 python scripts/true_posterior_temperature_sweep.py
+```
+Sweeps temperature T from 1.0 to 50.0, applies `probs**(1/T)` scaling to the Bayesian posterior at each step, and records accuracy and calibration. Used to select T=2.5 as the operating point.
+
+**Step 6 -- Cross-trial generalization**
+```bash
 python scripts/trial_generalization_analysis.py
+```
+Trains ExtraTrees on the full r1 dataset (24 points), tests on r2 (4 points, independently collected on a different day). Validates that the fingerprint model generalizes across sessions. Mean 3D error: ~0.26 m.
+
+**Step 7 -- Offline Bayesian demo on r2 test data**
+```bash
 python scripts/demo_bayes_r2_table.py
 ```
+Runs the Bayesian localization demo on r2: fits per-(point, condition, anchor) Gaussians on r1 training data, averages log-likelihoods over each r2 measurement window, applies temperature scaling (T=2.5), and outputs a ranked top-3 candidate table with probabilities and 95% credible set size.
 
 ### iii. Key Output Files
 
