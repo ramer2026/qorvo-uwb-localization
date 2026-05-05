@@ -8,7 +8,8 @@ We fixed that with fingerprinting. We measured at 24 grid points under both clea
 
 AoA cuts 3D localization error by 8-9% over ranging alone, but only where the angular geometry actually separates nearby points. Where obstruction deflects the signal, the angle reading is corrupted and AoA stops helping. The Bayesian model handles this by flagging those cases with low confidence instead of silently returning a wrong answer. You get a ranked list of candidate locations and a probability score, so you know when to trust the prediction and when not to.
 
-**Mean 3D localization error: ~0.26 m &nbsp;|&nbsp; Obstruction detection: ~77% accuracy &nbsp;|&nbsp; Live demo: UWB Explorer GUI**
+**Mean 3D localization error: ~0.26 m &nbsp;|&nbsp; Obstruction detection: ~77% accuracy 
+&nbsp;|&nbsp; Demo Video: (https://drive.google.com/file/d/1EIzJZe5rKWBtzIIYjYbEfG4i8bj1hZJU/view?usp=drivesdk)**
 
 ---
 
