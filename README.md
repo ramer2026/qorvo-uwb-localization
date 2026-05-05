@@ -106,6 +106,8 @@ pip install -r requirements.txt
 
 ## d. Reproducibility Guide
 
+**Tutorial (UWB Explorer GUI):** Plug in both anchors, open UWB Explorer, select both ports, start a session. The GUI shows live distance, azimuth, elevation, and RSSI in real time.
+
 ### i. Data Collection
 
 Raw logs are included in `raw/` and `trials/`. Naming convention:
@@ -115,9 +117,13 @@ Raw logs are included in `raw/` and `trials/`. Naming convention:
 ```
 Example: `z050_xm050_y100_los_anchorA_stdout.txt`
 
-To re-collect: run `scripts/collect_anchorA.sh` and `scripts/collect_anchorB.sh` with the tag placed at each grid point.
+Run `scripts/collect_anchorA.sh` and `scripts/collect_anchorB.sh` with the tag placed at each grid point.
 
-**Live demo (UWB Explorer GUI):** Plug in both anchors, open UWB Explorer, select both ports, start a session. The GUI shows live distance, azimuth, elevation, and RSSI in real time.
+To start collecting data, run the following command on each UWB. Start off with the coordinate, indicate if it is obstructed or clear line of sight, then indicate time length in seconds.
+```
+Example 1: z000_y000_x000 los 60
+Example 2: z000_y000_x000 obst 60
+```
 
 ### ii. Run the Pipeline
 
